@@ -425,16 +425,19 @@ module Make (M : Monad.S) : S with type return = unit M.t = struct
     |> List.sort compare_path
     |> Fmt.(list ~sep:(const string "\n") (pp_info t) stdout)
 
-  let validate_name name =
-    let pattern = "^[a-zA-Z0-9_- ]+$" in
-    let re = Re.(compile @@ Pcre.re pattern) in
-    if not (Re.execp re name) then
-      let msg =
-        Fmt.strf "%a %S is not a valid test label (must match %s)." red "Error:"
-          name pattern
-      in
-      Error msg
-    else Ok ()
+  let slugify s =
+    let buf = Buffer.create (String.length s) in
+    String.iter
+      (function
+        | ('a' .. 'z' | '0' .. '9' | '_' | '-' | ' ') as c ->
+            Buffer.add_char buf c
+        | _ as ch ->
+            Buffer.add_string buf
+              (Printf.sprintf "U+%04X" (Uchar.to_int (Uchar.of_char ch))))
+      s;
+    Buffer.contents buf
+
+  let validate_name name = Ok (slugify name)
 
   let register t (name, (ts : 'a test_case list)) =
     let max_label = max t.max_label (String.length name) in
